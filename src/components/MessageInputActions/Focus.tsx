@@ -14,47 +14,63 @@ import {
   Transition,
 } from '@headlessui/react';
 import { SiReddit, SiYoutube } from '@icons-pack/react-simple-icons';
-import { Fragment } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
-const focusModes = [
-  {
-    key: 'webSearch',
-    title: 'All',
-    description: 'Searches across all of the internet',
-    icon: <Globe size={20} />,
-  },
-  {
-    key: 'academicSearch',
-    title: 'Academic',
-    description: 'Search in published academic papers',
-    icon: <SwatchBook size={20} />,
-  },
-  {
-    key: 'writingAssistant',
-    title: 'Writing',
-    description: 'Chat without searching the web',
-    icon: <Pencil size={16} />,
-  },
-  {
-    key: 'wolframAlphaSearch',
-    title: 'Wolfram Alpha',
-    description: 'Computational knowledge engine',
-    icon: <BadgePercent size={20} />,
-  },
-  {
-    key: 'youtubeSearch',
-    title: 'Youtube',
-    description: 'Search and watch videos',
-    icon: <SiYoutube className="h-5 w-auto mr-0.5" />,
-  },
-  {
-    key: 'redditSearch',
-    title: 'Reddit',
-    description: 'Search for discussions and opinions',
-    icon: <SiReddit className="h-5 w-auto mr-0.5" />,
-  },
-];
+const Icons: {
+  [key: string]: JSX.Element;
+} = {
+  Globe: <Globe size={20} />,
+  SwatchBook: <SwatchBook size={20} />,
+  Pencil: <Pencil size={16} />,
+  BadgePercent: <BadgePercent size={20} />,
+  SiYoutube: <SiYoutube className="h-5 w-auto mr-0.5" />,
+  SiReddit: <SiReddit className="h-5 w-auto mr-0.5" />,
+};
+// const focusModes = [
+//   {
+//     key: 'webSearch',
+//     title: 'All',
+//     description: 'Searches across all of the internet',
+//     icon: <Globe size={20} />,
+//   },
+//   {
+//     key: 'academicSearch',
+//     title: 'Academic',
+//     description: 'Search in published academic papers',
+//     icon: <SwatchBook size={20} />,
+//   },
+//   {
+//     key: 'writingAssistant',
+//     title: 'Writing',
+//     description: 'Chat without searching the web',
+//     icon: <Pencil size={16} />,
+//   },
+//   {
+//     key: 'wolframAlphaSearch',
+//     title: 'Wolfram Alpha',
+//     description: 'Computational knowledge engine',
+//     icon: <BadgePercent size={20} />,
+//   },
+//   {
+//     key: 'youtubeSearch',
+//     title: 'Youtube',
+//     description: 'Search and watch videos',
+//     icon: <SiYoutube className="h-5 w-auto mr-0.5" />,
+//   },
+//   {
+//     key: 'redditSearch',
+//     title: 'Reddit',
+//     description: 'Search for discussions and opinions',
+//     icon: <SiReddit className="h-5 w-auto mr-0.5" />,
+//   },
+// ];
 
+type FocusMode = Array<{
+  key: string;
+  title: string;
+  description: string;
+  icon: string;
+}>;
 const Focus = ({
   focusMode,
   setFocusMode,
@@ -62,6 +78,26 @@ const Focus = ({
   focusMode: string;
   setFocusMode: (mode: string) => void;
 }) => {
+  const [loading, setLoading] = useState(true);
+  const [focusModes, setFocusModes] = useState<FocusMode>([]);
+
+  const loadFocusModes = async () => {
+    setLoading(true);
+    const response = await fetch('/api/focus', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const data = await response.json();
+    setFocusModes(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadFocusModes();
+  }, []);
+
   return (
     <Popover className="relative w-full max-w-[15rem] md:max-w-md lg:max-w-lg mt-[6.5px]">
       <PopoverButton
@@ -70,7 +106,11 @@ const Focus = ({
       >
         {focusMode !== 'webSearch' ? (
           <div className="flex flex-row items-center space-x-1">
-            {focusModes.find((mode) => mode.key === focusMode)?.icon}
+            {
+              Icons[
+                focusModes.find((mode) => mode.key === focusMode)?.icon || ''
+              ]
+            }
             <p className="text-xs font-medium hidden lg:block">
               {focusModes.find((mode) => mode.key === focusMode)?.title}
             </p>
@@ -94,6 +134,14 @@ const Focus = ({
       >
         <PopoverPanel className="absolute z-10 w-64 md:w-[500px] left-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 bg-light-primary dark:bg-dark-primary border rounded-lg border-light-200 dark:border-dark-200 w-full p-4 max-h-[200px] md:max-h-none overflow-y-auto">
+            {loading && (
+              <div className="flex flex-row items-center justify-center w-full h-full">
+                <p className="text-sm text-black/50 dark:text-white/50">
+                  Loading...
+                </p>
+              </div>
+            )}
+            {!loading && focusModes.length === 0 && 'No focus modes available'}
             {focusModes.map((mode, i) => (
               <PopoverButton
                 onClick={() => setFocusMode(mode.key)}
@@ -113,7 +161,7 @@ const Focus = ({
                       : 'text-black dark:text-white',
                   )}
                 >
-                  {mode.icon}
+                  {Icons[mode.icon]}
                   <p className="text-sm font-medium">{mode.title}</p>
                 </div>
                 <p className="text-black/70 dark:text-white/70 text-xs">
