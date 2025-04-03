@@ -64,9 +64,14 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
             ))}
           </VerticalIconContainer>
 
-          <Link href="/settings">
-            <Settings className="cursor-pointer" />
-          </Link>
+          <VerticalIconContainer>
+            <Link href="/settings/focus-modes">
+              <Settings className="cursor-pointer" />
+            </Link>
+            <Link href="/settings">
+              <Settings className="cursor-pointer" />
+            </Link>
+          </VerticalIconContainer>
         </div>
       </div>
 
