@@ -1,9 +1,18 @@
 import { useState } from 'react';
 
+const isEmpty = (v: any) => {
+  if (typeof v === 'string') {
+    return v.trim() === '';
+  } else if (Array.isArray(v)) {
+    return v.length === 0;
+  }
+  return v === undefined || v === null;
+};
+
 export type FormOptions = Array<{
   label: string;
   name: string;
-  type: 'input' | 'select' | 'textarea';
+  type: 'input' | 'select' | 'textarea' | 'switch' | 'number' | 'checkbox';
   required?: boolean;
   placeholder?: string;
   options?: Array<{ label: any; value: string }>;
@@ -28,7 +37,7 @@ export const Form = ({
     const { required, maxLength, requiredMessage, maxLengthMessage } = option;
     const v = _values?.[name] ?? values[name];
 
-    if (required && !v) {
+    if (required && isEmpty(v)) {
       setErrors({ ...errors, [name]: requiredMessage });
       return { isValid: false, error: requiredMessage };
     } else if (maxLength && (v?.length || 0) > maxLength) {
@@ -62,11 +71,17 @@ export const Form = ({
         const { label, name, type, required, placeholder } = option;
         return (
           <div key={index} className="flex mb-4 align-center">
-            <label className="min-w-28">{label}</label>
+            <label
+              style={{
+                minWidth: '13rem',
+              }}
+            >
+              {label}
+            </label>
             {type === 'input' && (
               <div className="flex-1">
                 <input
-                  value={values[name] || ''}
+                  value={values[name] ?? ''}
                   onChange={(e) => {
                     const v = e.target.value;
                     const newValues = { ...values, [name]: v };
@@ -77,7 +92,7 @@ export const Form = ({
                   type="text"
                   placeholder={placeholder}
                   required={required}
-                  className={`border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
+                  className={`w-[100%] border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
                 />
                 {errors[name] && (
                   <div className="text-red-500 text-sm">{errors[name]}</div>
@@ -87,7 +102,7 @@ export const Form = ({
             {type === 'textarea' && (
               <div className="flex-1">
                 <textarea
-                  value={values[name] || ''}
+                  value={values[name] ?? ''}
                   onChange={(e) => {
                     const v = e.target.value;
                     const newValues = { ...values, [name]: v };
@@ -97,7 +112,7 @@ export const Form = ({
                   name={name}
                   placeholder={placeholder}
                   required={required}
-                  className={`border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
+                  className={`w-[100%] border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
                 />
                 {errors[name] && (
                   <div className="text-red-500 text-sm">{errors[name]}</div>
@@ -107,7 +122,7 @@ export const Form = ({
             {type === 'select' && (
               <div className="flex-1">
                 <select
-                  value={values[name] || ''}
+                  value={values[name] ?? ''}
                   onChange={(e) => {
                     const v = e.target.value;
                     const newValues = { ...values, [name]: v };
@@ -116,7 +131,7 @@ export const Form = ({
                   }}
                   name={name}
                   required={required}
-                  className={`border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
+                  className={`w-[100%] border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
                 >
                   {option?.options?.map((opt, idx) => (
                     <option key={idx} value={opt.value}>
@@ -126,6 +141,80 @@ export const Form = ({
                 </select>
                 {errors[name] && (
                   <div className="text-red-500 text-sm">{errors[name]}</div>
+                )}
+              </div>
+            )}
+            {type === 'number' && (
+              <div className="flex-1">
+                <input
+                  value={values[name] ?? undefined}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const newValues = { ...values, [name]: v };
+                    setValues(newValues);
+                    validate(name, newValues);
+                  }}
+                  name={name}
+                  type="number"
+                  placeholder={placeholder}
+                  required={required}
+                  className={`w-[100%] border ${errors[name] ? 'border-red-500' : 'border-gray-300'} rounded p-2`}
+                />
+                {errors[name] && (
+                  <div className="text-red-500 text-sm">{errors[name]}</div>
+                )}
+              </div>
+            )}
+            {type === 'checkbox' && (
+              <div className="flex-1">
+                {option?.options?.map((opt, idx) => (
+                  <div key={idx} className="flex items-center">
+                    <input
+                      className="w-5 h-5"
+                      type="checkbox"
+                      checked={values[name]?.includes(opt.value) ?? false}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        const newValues = {
+                          ...values,
+                          [name]: v
+                            ? [...(values[name] || []), opt.value]
+                            : values[name]?.filter(
+                                (item: any) => item !== opt.value,
+                              ),
+                        };
+                        setValues(newValues);
+                        validate(name, newValues);
+                      }}
+                    />
+                    <span className="ml-4">{opt.label}</span>
+                  </div>
+                ))}
+                {errors[name] && (
+                  <div className="w-[100%] text-red-500 text-sm">
+                    {errors[name]}
+                  </div>
+                )}
+              </div>
+            )}
+            {type === 'switch' && (
+              <div className="flex-1">
+                <input
+                  className="w-5 h-5"
+                  type="checkbox"
+                  checked={values[name] ?? false}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    const newValues = { ...values, [name]: v };
+                    setValues(newValues);
+                    validate(name, newValues);
+                  }}
+                  name={name}
+                />
+                {errors[name] && (
+                  <div className="w-[100%] text-red-500 text-sm">
+                    {errors[name]}
+                  </div>
                 )}
               </div>
             )}

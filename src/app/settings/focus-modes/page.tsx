@@ -26,6 +26,15 @@ type FocusMode = Array<{
   title: string;
   description: string;
   icon: string;
+  agentConfig: {
+    queryGeneratorPrompt: string;
+    responsePrompt: string;
+    searchWeb: boolean;
+    rerank: boolean;
+    rerankThreshold: number;
+    activeEngines: Array<string>;
+    summarizer: boolean;
+  };
 }>;
 
 const Icons: {
@@ -71,6 +80,66 @@ const options: FormOptions = [
     requiredMessage: 'Icon is required',
     placeholder: 'Select icon',
   },
+  {
+    label: 'Search Web',
+    name: 'searchWeb',
+    type: 'switch',
+    required: true,
+    requiredMessage: 'Search Web is required',
+  },
+  {
+    label: 'summarizer',
+    name: 'summarizer',
+    type: 'switch',
+    required: true,
+    requiredMessage: 'summarizer is required',
+  },
+  {
+    label: 'rerank',
+    name: 'rerank',
+    type: 'switch',
+    required: true,
+    requiredMessage: 'rerank is required',
+  },
+  {
+    label: 'rerankThreshold',
+    name: 'rerankThreshold',
+    type: 'number',
+    required: true,
+    requiredMessage: 'rerankThreshold is required',
+    placeholder: 'rerankThreshold',
+  },
+  {
+    label: 'queryGeneratorPrompt',
+    name: 'queryGeneratorPrompt',
+    type: 'textarea',
+    maxLength: 10240,
+    requiredMessage: 'queryGeneratorPrompt is required',
+    maxLengthMessage: 'queryGeneratorPrompt is too long',
+    placeholder: 'Enter queryGeneratorPrompt',
+  },
+  {
+    label: 'responsePrompt',
+    name: 'responsePrompt',
+    type: 'textarea',
+    maxLength: 10240,
+    requiredMessage: 'responsePrompt is required',
+    maxLengthMessage: 'responsePrompt is too long',
+    placeholder: 'Enter responsePrompt',
+  },
+  {
+    label: 'activeEngines',
+    name: 'activeEngines',
+    type: 'checkbox',
+    options: [
+      { label: 'youtube', value: 'youtube' },
+      { label: 'arxiv', value: 'arxiv' },
+      { label: 'pubmed', value: 'pubmed' },
+      { label: 'google scholar', value: 'google scholar' },
+      { label: 'wolframalpha', value: 'wolframalpha' },
+      { label: 'reddit', value: 'reddit' },
+    ],
+  },
 ];
 
 const Page = () => {
@@ -89,6 +158,8 @@ const Page = () => {
     setFocusModes(data);
     setLoading(false);
   };
+
+  console.log(focusModes);
 
   useEffect(() => {
     loadFocusModes();
@@ -114,10 +185,22 @@ const Page = () => {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             >
-              <PopoverPanel className="absolute top-[20%] left-[25%] w-[50%] ">
+              <PopoverPanel className="absolute top-[8%] left-[25%] w-[50%] ">
                 <div className="p-4 bg-light-primary dark:bg-dark-primary border rounded-md border-light-200 dark:border-dark-200 w-full max-h-[200px] md:max-h-none overflow-y-auto flex flex-col gap-4">
                   <Form
-                    initValues={{ icon: 'Globe' }}
+                    initValues={{
+                      icon: 'Globe',
+                      title: '',
+                      description: '',
+
+                      searchWeb: false,
+                      rerank: false,
+                      rerankThreshold: 0,
+                      summarizer: false,
+                      queryGeneratorPrompt: '',
+                      responsePrompt: '',
+                      activeEngines: [],
+                    }}
                     options={options}
                     onSubmit={(values) => {
                       console.log(values);
@@ -127,7 +210,20 @@ const Page = () => {
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                          data: { ...values },
+                          data: {
+                            title: values.title,
+                            description: values.description,
+                            icon: values.icon,
+                            agentConfig: {
+                              queryGeneratorPrompt: values.queryGeneratorPrompt,
+                              responsePrompt: values.responsePrompt,
+                              searchWeb: values.searchWeb,
+                              rerank: values.rerank,
+                              rerankThreshold: values.rerankThreshold,
+                              activeEngines: values.activeEngines,
+                              summarizer: values.summarizer,
+                            },
+                          },
                           type: 'create',
                         }),
                       })
@@ -167,10 +263,23 @@ const Page = () => {
                     leaveFrom="opacity-100 translate-y-0"
                     leaveTo="opacity-0 translate-y-1"
                   >
-                    <PopoverPanel className="absolute top-[20%] left-[25%] w-[50%] ">
+                    <PopoverPanel className="absolute top-[8%] left-[25%] w-[50%] ">
                       <div className="p-4 bg-light-primary dark:bg-dark-primary border rounded-md border-light-200 dark:border-dark-200 w-full max-h-[200px] md:max-h-none overflow-y-auto flex flex-col gap-4">
                         <Form
-                          initValues={{ ...mode }}
+                          initValues={{
+                            icon: mode.icon,
+                            title: mode.title,
+                            description: mode.description,
+
+                            queryGeneratorPrompt:
+                              mode.agentConfig.queryGeneratorPrompt,
+                            responsePrompt: mode.agentConfig.responsePrompt,
+                            searchWeb: mode.agentConfig.searchWeb,
+                            rerank: mode.agentConfig.rerank,
+                            rerankThreshold: mode.agentConfig.rerankThreshold,
+                            activeEngines: mode.agentConfig.activeEngines,
+                            summarizer: mode.agentConfig.summarizer,
+                          }}
                           options={options}
                           onSubmit={(values) => {
                             console.log(values);
@@ -180,7 +289,23 @@ const Page = () => {
                                 'Content-Type': 'application/json',
                               },
                               body: JSON.stringify({
-                                data: { ...values },
+                                data: {
+                                  key: mode.key,
+
+                                  title: values.title,
+                                  description: values.description,
+                                  icon: values.icon,
+                                  agentConfig: {
+                                    queryGeneratorPrompt:
+                                      values.queryGeneratorPrompt,
+                                    responsePrompt: values.responsePrompt,
+                                    searchWeb: values.searchWeb,
+                                    rerank: values.rerank,
+                                    rerankThreshold: values.rerankThreshold,
+                                    activeEngines: values.activeEngines,
+                                    summarizer: values.summarizer,
+                                  },
+                                },
                                 type: 'update',
                               }),
                             })
