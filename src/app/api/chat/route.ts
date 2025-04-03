@@ -20,7 +20,7 @@ import {
   getCustomOpenaiApiUrl,
   getCustomOpenaiModelName,
 } from '@/lib/config';
-import { searchHandlers } from '@/lib/search';
+import { createSearchHandlers, searchHandlers } from '@/lib/search';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -261,7 +261,12 @@ export const POST = async (req: Request) => {
       }
     });
 
-    const handler = searchHandlers[body.focusMode];
+    const handlerConfig = (global as any).db.focusModes[body.focusMode];
+
+    // const handler = searchHandlers[body.focusMode];
+    const handler = handlerConfig
+      ? createSearchHandlers(handlerConfig)
+      : undefined;
 
     if (!handler) {
       return Response.json(

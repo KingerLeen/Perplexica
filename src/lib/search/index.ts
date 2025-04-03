@@ -1,6 +1,26 @@
 import MetaSearchAgent from '@/lib/search/metaSearchAgent';
 import prompts from '../prompts';
 
+export const createSearchHandlers = ({
+  activeEngines = [],
+  queryGeneratorPrompt = '',
+  responsePrompt = '',
+  rerank = true,
+  rerankThreshold = 0.3,
+  searchWeb = true,
+  summarizer = true,
+}) => {
+  return new MetaSearchAgent({
+    activeEngines,
+    queryGeneratorPrompt,
+    responsePrompt,
+    rerank,
+    rerankThreshold,
+    searchWeb,
+    summarizer,
+  });
+};
+
 export const searchHandlers: Record<string, MetaSearchAgent> = {
   webSearch: new MetaSearchAgent({
     activeEngines: [],

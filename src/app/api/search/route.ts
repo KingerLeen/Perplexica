@@ -12,7 +12,7 @@ import {
   getCustomOpenaiApiUrl,
   getCustomOpenaiModelName,
 } from '@/lib/config';
-import { searchHandlers } from '@/lib/search';
+import { createSearchHandlers, searchHandlers } from '@/lib/search';
 
 interface chatModel {
   provider: string;
@@ -112,7 +112,12 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const searchHandler: MetaSearchAgentType = searchHandlers[body.focusMode];
+    // const searchHandler: MetaSearchAgentType = searchHandlers[body.focusMode];
+
+    const handlerConfig = (global as any).db.focusModes[body.focusMode];
+    const searchHandler = handlerConfig
+      ? createSearchHandlers(handlerConfig)
+      : undefined;
 
     if (!searchHandler) {
       return Response.json({ message: 'Invalid focus mode' }, { status: 400 });
