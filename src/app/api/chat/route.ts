@@ -212,7 +212,7 @@ export const POST = async (req: Request) => {
       content: message.content,
       focusMode: body.focusMode,
       optimizationMode: body.optimizationMode,
-      history: body.history,
+      history: body.history.filter((d) => d[0] === 'human'),
     };
     // 从redis获取缓存
     const historyMainKey = 'chat-cache-' + JSON.stringify(mianCacheObj);
