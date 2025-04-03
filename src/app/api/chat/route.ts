@@ -21,6 +21,10 @@ import {
   getCustomOpenaiModelName,
 } from '@/lib/config';
 import { createSearchHandlers, searchHandlers } from '@/lib/search';
+import { getRedisClient } from '../redis';
+import { cat } from '@xenova/transformers';
+
+const redis = getRedisClient();
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,12 +56,15 @@ type Body = {
   systemInstructions: string;
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const handleEmitterEvents = async (
   stream: EventEmitter,
   writer: WritableStreamDefaultWriter,
   encoder: TextEncoder,
   aiMessageId: string,
   chatId: string,
+  handleStreamEnd: (responseContent: any, sources: any) => Promise<void>,
 ) => {
   let recievedMessage = '';
   let sources: any[] = [];
@@ -100,6 +107,8 @@ const handleEmitterEvents = async (
       ),
     );
     writer.close();
+
+    handleStreamEnd(recievedMessage, sources);
 
     db.insert(messagesSchema)
       .values({
@@ -186,6 +195,10 @@ export const POST = async (req: Request) => {
     const body = (await req.json()) as Body;
     const { message } = body;
 
+    const humanMessageId =
+      message.messageId ?? crypto.randomBytes(7).toString('hex');
+    const aiMessageId = crypto.randomBytes(7).toString('hex');
+
     if (message.content === '') {
       return Response.json(
         {
@@ -193,6 +206,81 @@ export const POST = async (req: Request) => {
         },
         { status: 400 },
       );
+    }
+
+    const mianCacheObj = {
+      content: message.content,
+      focusMode: body.focusMode,
+      optimizationMode: body.optimizationMode,
+      history: body.history,
+    };
+    // 从redis获取缓存
+    const historyMainKey = 'chat-cache-' + JSON.stringify(mianCacheObj);
+    if (!body?.files?.length) {
+      try {
+        console.log('find chat-cache from redis', historyMainKey);
+        const historyCache = await redis.get(historyMainKey);
+        if (historyCache) {
+          console.log('find chat-cache from redis', historyCache);
+          const { content, sources } = JSON.parse(historyCache);
+
+          const responseStream = new TransformStream();
+          const writer = responseStream.writable.getWriter();
+          const encoder = new TextEncoder();
+
+          const handleHistory = async () => {
+            await sleep(500);
+            writer.write(
+              encoder.encode(
+                JSON.stringify({
+                  type: 'sources',
+                  data: sources,
+                  messageId: aiMessageId,
+                }) + '\n',
+              ),
+            );
+
+            const contentList = content?.split('\n') || [];
+            for (let i = 0; i < contentList.length; i++) {
+              const item = contentList[i];
+
+              await sleep(100);
+              writer.write(
+                encoder.encode(
+                  JSON.stringify({
+                    type: 'message',
+                    data: item || '\n\n',
+                    messageId: aiMessageId,
+                  }) + '\n',
+                ),
+              );
+
+              if (i === contentList.length - 1) {
+                await sleep(100);
+                writer.write(
+                  encoder.encode(
+                    JSON.stringify({
+                      type: 'messageEnd',
+                      messageId: aiMessageId,
+                    }) + '\n',
+                  ),
+                );
+              }
+            }
+          };
+          handleHistory();
+
+          return new Response(responseStream.readable, {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              Connection: 'keep-alive',
+              'Cache-Control': 'no-cache, no-transform',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Failed to parse cached response:', error);
+      }
     }
 
     const [chatModelProviders, embeddingModelProviders] = await Promise.all([
@@ -245,10 +333,6 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const humanMessageId =
-      message.messageId ?? crypto.randomBytes(7).toString('hex');
-    const aiMessageId = crypto.randomBytes(7).toString('hex');
-
     const history: BaseMessage[] = body.history.map((msg) => {
       if (msg[0] === 'human') {
         return new HumanMessage({
@@ -261,12 +345,14 @@ export const POST = async (req: Request) => {
       }
     });
 
-    const handlerConfig = (global as any).db.focusModes[body.focusMode];
+    const handler = searchHandlers[body.focusMode];
 
-    // const handler = searchHandlers[body.focusMode];
-    const handler = handlerConfig
-      ? createSearchHandlers(handlerConfig)
-      : undefined;
+    // const focusModes = await getFocusModes();
+    // const handlerConfig = focusModes.find((d: any) => d.key === body.focusMode);
+    // console.log(handlerConfig);
+    // const handler = handlerConfig
+    //   ? createSearchHandlers(handlerConfig)
+    //   : undefined;
 
     if (!handler) {
       return Response.json(
@@ -291,7 +377,31 @@ export const POST = async (req: Request) => {
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    handleEmitterEvents(stream, writer, encoder, aiMessageId, message.chatId);
+    const handleStreamEnd = async (content: any, sources: any[]) => {
+      // 如果没有文件上传，将结果缓存到Redis
+      if (!body?.files?.length) {
+        try {
+          // 设置缓存，过期时间设置（1小时）
+          await redis.setex(
+            historyMainKey,
+            3600,
+            JSON.stringify({ content, sources }),
+          );
+          console.log('Response cached for key:', historyMainKey);
+        } catch (error) {
+          console.error('Failed to cache response:', error);
+        }
+      }
+    };
+
+    handleEmitterEvents(
+      stream,
+      writer,
+      encoder,
+      aiMessageId,
+      message.chatId,
+      handleStreamEnd,
+    );
     handleHistorySave(message, humanMessageId, body.focusMode, body.files);
 
     return new Response(responseStream.readable, {
